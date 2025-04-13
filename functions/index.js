@@ -2,32 +2,42 @@
 // Backend logic using Firebase Cloud Functions and Razorpay
 
 const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-const Razorpay = require("razorpay");
+const express = require('express');
+const cors = require('cors');
 const crypto = require("crypto"); // Built-in Node.js crypto library
-const cors = require("cors")({ origin: true }); // Enable CORS for callable functions
 
-// Initialize Firebase Admin SDK (runs in the backend environment)
-admin.initializeApp();
-const db = admin.firestore();
+const app = express(); // Create an Express app
+app.use(express.json()); // Parse JSON request bodies
+app.use(cors({ origin: true })); // Enable CORS for all routes
 
-// Initialize Razorpay instance using environment variables
-// These MUST be set using `firebase functions:config:set ...`
-const razorpayInstance = new Razorpay({
-    key_id: functions.config().razorpay.key_id,
-    key_secret: functions.config().razorpay.key_secret,
-});
+// Lazy-initialized Firebase Admin SDK
+let db;
+async function initializeDb() {
+    if (!db) {
+        const admin = require("firebase-admin");
+        admin.initializeApp();
+        db = admin.firestore();
+    }
+    return db;
+}
+
+// Lazy-initialized Razorpay instance
+let razorpayInstance;
+async function initializeRazorpay() {
+    if (!razorpayInstance) {
+        const Razorpay = require("razorpay");
+        razorpayInstance = new Razorpay({
+            key_id: functions.config().razorpay.key_id,
+            key_secret: functions.config().razorpay.key_secret,
+        });
+    }
+    return razorpayInstance;
+}
 
 /**
  * Creates a Razorpay Order when called by the frontend.
- * - Verifies transaction details in Firestore.
- * - Creates order via Razorpay API.
- * - Updates Firestore transaction with Razorpay order ID.
- * - Returns order details to frontend for checkout.
  */
 exports.createRazorpayOrder = functions.https.onCall(async (data, context) => {
-
-    cors(req, res, async () => {});
     // Check authentication
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be logged in to create an order.');
@@ -44,6 +54,7 @@ exports.createRazorpayOrder = functions.https.onCall(async (data, context) => {
     console.log(`Creating Razorpay order for transaction ${transactionId} by user ${userEmail}`);
 
     try {
+        const db = await initializeDb();
         const txDocRef = db.collection('transactions').doc(transactionId);
         const txDoc = await txDocRef.get();
 
@@ -84,6 +95,7 @@ exports.createRazorpayOrder = functions.https.onCall(async (data, context) => {
             }
         };
 
+        const razorpayInstance = await initializeRazorpay();
         // Create Razorpay order
         const order = await razorpayInstance.orders.create(options);
         console.log("Razorpay order created:", order.id);
@@ -116,14 +128,8 @@ exports.createRazorpayOrder = functions.https.onCall(async (data, context) => {
 
 /**
  * Verifies Razorpay Webhook signature and updates Firestore transaction status on successful payment.
- * - Listens for HTTP POST requests from Razorpay.
- * - Validates signature using webhook secret.
- * - Updates transaction status to 'awaiting_shipment' if payment is 'captured'.
  */
-exports.verifyRazorpayPayment = functions.https.onRequest(async (req, res) => {
-    // Use CORS middleware for testing if needed, but webhooks usually don't need it if called server-to-server
-    cors(req, res, async () => {}); // Uncomment if CORS issues arise during testing
-
+app.post('/webhook', async (req, res) => { // Define the webhook route
     console.log("Received Razorpay Webhook...");
 
     // 1. Validate Webhook Signature
@@ -178,6 +184,7 @@ exports.verifyRazorpayPayment = functions.https.onRequest(async (req, res) => {
             console.log(`Processing captured payment for Razorpay Order ID: ${razorpayOrderId}`);
 
             // 4. Find corresponding transaction in Firestore using razorpayOrderId
+            const db = await initializeDb();
             const transactionsRef = db.collection('transactions');
             const querySnapshot = await transactionsRef.where('razorpayOrderId', '==', razorpayOrderId).limit(1).get();
 
@@ -225,5 +232,7 @@ exports.verifyRazorpayPayment = functions.https.onRequest(async (req, res) => {
         // Don't send detailed errors back to Razorpay
         return res.status(500).send("Internal server error processing webhook.");
     }
-    // }); // End CORS wrapper if used
-}); // End verifyRazorpayPayment function
+});
+
+// Expose the Express app as a Cloud Function
+exports.verifyRazorpayPayment = functions.https.onRequest(app);
