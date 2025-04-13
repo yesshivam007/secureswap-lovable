@@ -8,8 +8,14 @@ Logout Icon:
 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-log-out-icon lucide-log-out"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
 
 RazorPay:
-Key: rzp_test_Vl8nv3uSL8KYKC
-Secret: 6v4kwmmfojvl0EJlZtDRYbYO
+Key: rzp_test_ilI8NAC6fdM015
+Secret: I2K0HUYG6HC1RSynz3KUguyc
 
 Webhook Secret:
-My Pet is Tom
+lollol
+
+firebase functions:delete verifyRazorpayPayment --region=us-central1
+
+firebase functions:config:set razorpay.key_id="rzp_test_ilI8NAC6fdM015"
+firebase functions:config:set razorpay.key_secret="I2K0HUYG6HC1RSynz3KUguyc"
+firebase functions:config:set razorpay.webhook_secret="lollol"
