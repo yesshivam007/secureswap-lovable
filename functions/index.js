@@ -27,7 +27,7 @@ const razorpayInstance = new Razorpay({
  */
 exports.createRazorpayOrder = functions.https.onCall(async (data, context) => {
 
-    
+    cors(req, res, async () => { ... });
     // Check authentication
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be logged in to create an order.');
