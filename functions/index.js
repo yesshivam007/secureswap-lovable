@@ -120,7 +120,7 @@ exports.createRazorpayOrder = functions.https.onCall(async (data, context) => {
  */
 exports.verifyRazorpayPayment = functions.https.onRequest(async (req, res) => {
     // Use CORS middleware for testing if needed, but webhooks usually don't need it if called server-to-server
-    // cors(req, res, async () => { ... }); // Uncomment if CORS issues arise during testing
+    cors(req, res, async () => { ... }); // Uncomment if CORS issues arise during testing
 
     console.log("Received Razorpay Webhook...");
 
